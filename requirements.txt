@@ -1,11 +1,3 @@
 numpy>=1.24.0
-scikit-learn>=1.3.0
-tensorflow>=2.13.0
-torch>=2.0.0
-transformers>=4.35.0
-scapy>=2.5.0
-python-nmap>=0.7.1
 requests>=2.31.0
-shodan>=1.29.0
-virus total-api>=1.0.0
-flask>=2.3.0   # para la API REST
+python-nmap>=0.7.1
