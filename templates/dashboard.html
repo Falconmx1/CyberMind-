@@ -1,0 +1,290 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>CyberMind Dashboard</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: 'Courier New', monospace;
+            background: #0a0e27;
+            color: #00ff9d;
+            padding: 20px;
+        }
+        
+        .header {
+            text-align: center;
+            padding: 20px;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            border-radius: 10px;
+            margin-bottom: 30px;
+        }
+        
+        .header h1 {
+            font-size: 3em;
+            text-shadow: 0 0 10px rgba(0,255,157,0.5);
+        }
+        
+        .stats-container {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+            gap: 20px;
+            margin-bottom: 30px;
+        }
+        
+        .stat-card {
+            background: rgba(255,255,255,0.1);
+            backdrop-filter: blur(10px);
+            border-radius: 10px;
+            padding: 20px;
+            text-align: center;
+            border: 1px solid rgba(0,255,157,0.3);
+        }
+        
+        .stat-number {
+            font-size: 3em;
+            font-weight: bold;
+            color: #00ff9d;
+        }
+        
+        .scan-section {
+            background: rgba(255,255,255,0.05);
+            border-radius: 10px;
+            padding: 20px;
+            margin-bottom: 30px;
+        }
+        
+        .scan-form {
+            display: flex;
+            gap: 10px;
+            margin-top: 15px;
+        }
+        
+        input, button {
+            padding: 10px;
+            font-size: 16px;
+            border: 1px solid #00ff9d;
+            background: rgba(0,0,0,0.5);
+            color: #00ff9d;
+            border-radius: 5px;
+        }
+        
+        button {
+            cursor: pointer;
+            transition: all 0.3s;
+        }
+        
+        button:hover {
+            background: #00ff9d;
+            color: #0a0e27;
+        }
+        
+        .threats-table {
+            width: 100%;
+            border-collapse: collapse;
+        }
+        
+        .threats-table th, .threats-table td {
+            border: 1px solid rgba(0,255,157,0.3);
+            padding: 10px;
+            text-align: left;
+        }
+        
+        .high-risk {
+            background: rgba(255,0,0,0.2);
+            color: #ff4444;
+        }
+        
+        .medium-risk {
+            background: rgba(255,165,0,0.2);
+            color: #ffa500;
+        }
+        
+        .refresh-btn {
+            margin-bottom: 20px;
+        }
+        
+        @keyframes pulse {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.5; }
+        }
+        
+        .loading {
+            animation: pulse 1s infinite;
+        }
+    </style>
+</head>
+<body>
+    <div class="header">
+        <h1>🧠 CyberMind Security Dashboard</h1>
+        <p>Monitoreo de amenazas en tiempo real con IA</p>
+    </div>
+    
+    <div class="stats-container">
+        <div class="stat-card">
+            <div class="stat-number" id="totalScans">0</div>
+            <div>Total Escaneos</div>
+        </div>
+        <div class="stat-card">
+            <div class="stat-number" id="malwareDetected">0</div>
+            <div>Malware Detectado</div>
+        </div>
+        <div class="stat-card">
+            <div class="stat-number" id="ipsScanned">0</div>
+            <div>IPs Escaneadas</div>
+        </div>
+        <div class="stat-card">
+            <div class="stat-number" id="alerts">0</div>
+            <div>Alertas Activas</div>
+        </div>
+    </div>
+    
+    <div class="scan-section">
+        <h2>📁 Escanear Archivo</h2>
+        <div class="scan-form">
+            <input type="file" id="fileInput">
+            <button onclick="scanFile()">Analizar con IA</button>
+        </div>
+        <div id="fileResult" style="margin-top: 15px;"></div>
+    </div>
+    
+    <div class="scan-section">
+        <h2>🌐 Escanear IP</h2>
+        <div class="scan-form">
+            <input type="text" id="ipInput" placeholder="Ej: 8.8.8.8">
+            <button onclick="scanIP()">Escaneo Shodan</button>
+        </div>
+        <div id="ipResult" style="margin-top: 15px;"></div>
+    </div>
+    
+    <div class="scan-section">
+        <h2>⚠️ Amenazas Detectadas</h2>
+        <button class="refresh-btn" onclick="loadThreats()">🔄 Actualizar</button>
+        <div id="threatsList"></div>
+    </div>
+    
+    <script>
+        async function loadStats() {
+            const response = await fetch('/api/threats/stats');
+            const stats = await response.json();
+            document.getElementById('totalScans').textContent = stats.total_scans;
+            document.getElementById('malwareDetected').textContent = stats.malware_detected;
+            document.getElementById('ipsScanned').textContent = stats.ips_scanned;
+        }
+        
+        async function loadThreats() {
+            const response = await fetch('/api/threats?limit=20');
+            const threats = await response.json();
+            
+            const threatsHtml = `
+                <table class="threats-table">
+                    <thead>
+                        <tr><th>Timestamp</th><th>Tipo</th><th>Target/Hash</th><th>Resultado</th></tr>
+                    </thead>
+                    <tbody>
+                        ${threats.reverse().map(t => `
+                            <tr class="${t.result?.is_malware ? 'high-risk' : ''}">
+                                <td>${new Date(t.timestamp).toLocaleString()}</td>
+                                <td>${t.type}</td>
+                                <td>${t.type === 'file' ? t.hash?.substring(0, 16) : t.target}</td>
+                                <td>${t.type === 'file' ? (t.result?.is_malware ? '🔴 MALWARE' : '🟢 Limpio') : 
+                                    (t.result?.vulnerabilities ? '⚠️ Vulnerable' : '✅ Seguro')}</td>
+                            </tr>
+                        `).join('')}
+                    </tbody>
+                </table>
+            `;
+            document.getElementById('threatsList').innerHTML = threatsHtml;
+        }
+        
+        async function scanFile() {
+            const fileInput = document.getElementById('fileInput');
+            const file = fileInput.files[0];
+            
+            if (!file) {
+                alert('Selecciona un archivo');
+                return;
+            }
+            
+            const formData = new FormData();
+            formData.append('file', file);
+            
+            document.getElementById('fileResult').innerHTML = '<div class="loading">Analizando con IA...</div>';
+            
+            const response = await fetch('/api/scan/file', {
+                method: 'POST',
+                body: formData
+            });
+            
+            const result = await response.json();
+            
+            let html = `
+                <div style="background: rgba(0,0,0,0.5); padding: 15px; border-radius: 5px;">
+                    <strong>Resultado:</strong><br>
+                    Estado: ${result.is_malware ? '🔴 MALWARE' : '🟢 LIMPIO'}<br>
+                    Confianza: ${(result.confidence * 100).toFixed(1)}%<br>
+                    SHA256: ${result.sha256?.substring(0, 32)}...
+            `;
+            
+            if (result.virustotal) {
+                html += `<br>VirusTotal: ${result.virustotal.malicious}/${result.virustotal.total_engines} motores detectaron amenaza`;
+            }
+            
+            html += `</div>`;
+            document.getElementById('fileResult').innerHTML = html;
+            
+            loadStats();
+            loadThreats();
+        }
+        
+        async function scanIP() {
+            const ip = document.getElementById('ipInput').value;
+            
+            if (!ip) {
+                alert('Ingresa una IP');
+                return;
+            }
+            
+            document.getElementById('ipResult').innerHTML = '<div class="loading">Escaneando IP...</div>';
+            
+            const response = await fetch('/api/scan/ip', {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify({ip: ip})
+            });
+            
+            const result = await response.json();
+            
+            let html = `
+                <div style="background: rgba(0,0,0,0.5); padding: 15px; border-radius: 5px;">
+                    <strong>IP: ${result.ip}</strong><br>
+                    País: ${result.country || 'N/A'}<br>
+                    Organización: ${result.org || 'N/A'}<br>
+                    Puertos abiertos: ${result.open_ports?.join(', ') || 'Ninguno'}<br>
+                    Vulnerabilidades: ${result.vulnerabilities?.length || 0}
+                </div>
+            `;
+            
+            document.getElementById('ipResult').innerHTML = html;
+            loadStats();
+            loadThreats();
+        }
+        
+        // Cargar datos iniciales
+        loadStats();
+        loadThreats();
+        
+        // Actualizar cada 10 segundos
+        setInterval(() => {
+            loadStats();
+            loadThreats();
+        }, 10000);
+    </script>
+</body>
+</html>
